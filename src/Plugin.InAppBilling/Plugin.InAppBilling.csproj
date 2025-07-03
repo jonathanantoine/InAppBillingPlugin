@@ -98,10 +98,6 @@
     </PackageReference>
   </ItemGroup>
 
-  <ItemGroup Condition=" $(TargetFramework.Contains('net8.0-android')) ">
-    <PackageReference Include="Microsoft.Maui.Essentials" Version="9.0.60" />
-  </ItemGroup>
-
   <ItemGroup Condition=" $(TargetFramework.Contains('net9.0-android')) ">
     <PackageReference Include="Microsoft.Maui.Essentials" Version="9.0.70" />
   </ItemGroup>
