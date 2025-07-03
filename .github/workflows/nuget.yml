@@ -1,0 +1,99 @@
+name: NuGet Package Build
+
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs'
+  pull_request:
+    branches: [ "master" ]
+    paths-ignore:
+      - 'docs'
+jobs:
+  build:
+    runs-on: macos-latest
+    
+    env:
+      buildConfiguration: 'Release'
+      SRC_FOLDER: ./src/
+      PROJ_NAME: Plugin.InAppBilling
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Update Build Number
+        id: build-number
+        run: |
+          # Create new build number with timestamp base
+          newBuildNumber=$(date +%Y%m%d%H%M)
+          echo "NEW_BUILD_NUMBER=$newBuildNumber" >> $GITHUB_ENV
+          echo "Build number: $newBuildNumber"
+        shell: bash
+
+      - name: Force version of Xcode
+        run: |
+          echo "Versions of Xcode before:"
+          xcodebuild -version
+          
+          echo "Available versions of Xcode:"
+          ls -la /Applications/ | grep Xcode
+          
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
+          
+          echo "Versions of Xcode after:"
+          xcodebuild -version
+        shell: bash
+
+      - name: Install dotnet maui-ios and maui-android workloads
+        run: dotnet workload install maui-ios maui-android
+        shell: bash
+
+      - name: Restore NuGet packages
+        run: dotnet restore ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/${{ env.PROJ_NAME }}.csproj
+        
+      - name: Build project
+        run: dotnet build ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/${{ env.PROJ_NAME }}.csproj -c ${{ env.buildConfiguration }}
+
+      - name: Pack as NuGet package
+        run: dotnet pack ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/${{ env.PROJ_NAME }}.csproj -c ${{ env.buildConfiguration }}
+
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/bin/${{ env.buildConfiguration }}/*.nupkg
+          
+      - name: Add NuGet feed 'GitHub'
+        if: github.event_name == 'push'
+        run: dotnet nuget add source --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
+        shell: bash          
+
+      - name: Vérifier si le package existe déjà sur GitHub NuGet Registry
+        id: check-nuget-exists
+        run: |
+          nupkg_path=$(ls ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/bin/${{ env.buildConfiguration }}/*.nupkg | head -n 1)
+          pkg_name=$(basename "$nupkg_path")
+          pkg_id=$(echo "$pkg_name" | sed -E 's/(.*)\.([0-9]+\.[0-9]+\.[0-9]+.*)\.nupkg/\1/')
+          pkg_version=$(echo "$pkg_name" | sed -E 's/.*\.([0-9]+\.[0-9]+\.[0-9]+.*)\.nupkg/\1/')
+          echo "Package: $pkg_id, Version: $pkg_version"
+          exists=$(dotnet nuget list source github && dotnet list package --source "github" --include-prerelease --verbosity quiet | grep "$pkg_id" | grep "$pkg_version" || true)
+          if [ ! -z "$exists" ]; then
+            echo "Le package $pkg_id $pkg_version existe déjà sur le feed GitHub."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
+      - name: Publish on GitHub NuGet Registry
+        if: github.event_name == 'push' && steps.check-nuget-exists.outputs.exists != 'true'
+        run: dotnet nuget push ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/bin/${{ env.buildConfiguration }}/*.nupkg --source "github" --api-key ${{ secrets.GITHUB_TOKEN }}
+        env:
+          NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
