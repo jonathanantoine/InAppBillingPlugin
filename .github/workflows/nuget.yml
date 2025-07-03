@@ -74,8 +74,25 @@ jobs:
         run: dotnet nuget add source --username ${{ github.actor }} --password ${{ secrets.GITHUB_TOKEN }} --store-password-in-clear-text --name github "https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json"
         shell: bash          
 
+      - name: Vérifier si le package existe déjà sur GitHub NuGet Registry
+        id: check-nuget-exists
+        run: |
+          nupkg_path=$(ls ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/bin/${{ env.buildConfiguration }}/*.nupkg | head -n 1)
+          pkg_name=$(basename "$nupkg_path")
+          pkg_id=$(echo "$pkg_name" | sed -E 's/(.*)\.([0-9]+\.[0-9]+\.[0-9]+.*)\.nupkg/\1/')
+          pkg_version=$(echo "$pkg_name" | sed -E 's/.*\.([0-9]+\.[0-9]+\.[0-9]+.*)\.nupkg/\1/')
+          echo "Package: $pkg_id, Version: $pkg_version"
+          exists=$(dotnet nuget list source github && dotnet list package --source "github" --include-prerelease --verbosity quiet | grep "$pkg_id" | grep "$pkg_version" || true)
+          if [ ! -z "$exists" ]; then
+            echo "Le package $pkg_id $pkg_version existe déjà sur le feed GitHub."
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+        shell: bash
+
       - name: Publish on GitHub NuGet Registry
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.check-nuget-exists.outputs.exists != 'true'
         run: dotnet nuget push ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/bin/${{ env.buildConfiguration }}/*.nupkg --source "github" --api-key ${{ secrets.GITHUB_TOKEN }}
         env:
           NUGET_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
