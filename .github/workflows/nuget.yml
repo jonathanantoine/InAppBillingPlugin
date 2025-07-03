@@ -51,7 +51,7 @@ jobs:
         shell: bash
 
       - name: Install dotnet maui-ios workload
-        run: dotnet workload install maui-ios
+        run: dotnet workload install maui-ios maui-android
         shell: bash
 
       - name: Restore NuGet packages
