@@ -50,14 +50,17 @@ jobs:
           xcodebuild -version
         shell: bash
 
-      - name: Install dotnet maui-ios workload
+      - name: Install dotnet maui-ios and maui-android workloads
         run: dotnet workload install maui-ios maui-android
         shell: bash
 
       - name: Restore NuGet packages
         run: dotnet restore ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/${{ env.PROJ_NAME }}.csproj
+        
+      - name: Build project
+        run: dotnet build ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/${{ env.PROJ_NAME }}.csproj -c ${{ env.buildConfiguration }}
 
-      - name: Pack NuGet package
+      - name: Pack as NuGet package
         run: dotnet pack ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/${{ env.PROJ_NAME }}.csproj -c ${{ env.buildConfiguration }}
 
       - name: Upload NuGet package
