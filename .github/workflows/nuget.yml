@@ -42,7 +42,7 @@ jobs:
           echo "Versions de Xcode disponibles:"
           ls -la /Applications/ | grep Xcode
           
-          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           
           echo "Versions de Xcode utilisée après:"
           xcodebuild -version
