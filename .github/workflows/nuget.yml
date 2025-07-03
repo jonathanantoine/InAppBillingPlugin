@@ -1,69 +1,63 @@
-trigger:
-  branches:
-    include:
-    - master
-  paths:
-    exclude:
-    - builds/android-ci.yml
-    - TVST.Android*/**
-    - misc/**
-pool:
-  vmImage: 'macos-15'
+name: NuGet Package Build
 
-variables:
-  buildConfiguration: 'Release'
+on:
+  push:
+    branches: [ master ]
+    paths-ignore:
+      - 'docs'
 
 
-steps:
-- task: Bash@3
-  displayName: 'Update Build Number'
-  inputs:
-    targetType: 'inline'
-    script: |
-      # Create new build number with timestamp base
-      newBuildNumber=$(date +%Y%m%d%H%M)    
-      echo "##vso[task.setvariable variable=NEW_BUILD_NUMBER]$newBuildNumber"
-
-      # Update the pipeline build number
-      finalBuildNumber="$(Build.BuildNumber) • Build $newBuildNumber"
-      echo "##vso[build.updatebuildnumber]$finalBuildNumber"
-  condition: always()
-
-- task: Bash@3
-  displayName: 'Force version of XCODE'
-  inputs:
-    targetType: 'inline'
-    script: |
-      echo "Versions de Xcode utilisée avant:"
-      xcodebuild -version
-      # Vérifier les versions de Xcode disponibles
-      echo "Versions de Xcode disponibles:"
-      ls -la /Applications/ | grep Xcode
-      
-      # Utiliser une version plus récente de Xcode si disponible
-      sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-      
-      # Vérifier la version active de Xcode
-      echo "Versions de Xcode utilisée après:"
-      xcodebuild -version
-
-- task: Bash@3
-  displayName: 'Install dotnet maui-ios workload'
-  inputs:
-    targetType: 'inline'
-    script: 'dotnet workload install maui-ios'
-
-- task: DotNetCoreCLI@2
-  displayName: 'Restore nugets'
-  inputs:
-    command: 'restore'
-    projects: '$(projectName)/*.csproj'
-    feedsToUse: 'config'
-    nugetConfigPath: 'nuget.config'
+jobs:
+  build:
+    runs-on: macos-latest
     
-- task: DotNetCoreCLI@2
-  displayName: 'Pack nuget package'
-  inputs:
-    command: 'pack'
-    projects: '$(projectName)/*.csproj'
-    arguments: '-c $(buildConfiguration)'
+    env:
+      buildConfiguration: 'Release'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Update Build Number
+        id: build-number
+        run: |
+          # Create new build number with timestamp base
+          newBuildNumber=$(date +%Y%m%d%H%M)
+          echo "NEW_BUILD_NUMBER=$newBuildNumber" >> $GITHUB_ENV
+          echo "Build number: $newBuildNumber"
+        shell: bash
+
+      - name: Force version of Xcode
+        run: |
+          echo "Versions de Xcode utilisée avant:"
+          xcodebuild -version
+          
+          echo "Versions de Xcode disponibles:"
+          ls -la /Applications/ | grep Xcode
+          
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
+          
+          echo "Versions de Xcode utilisée après:"
+          xcodebuild -version
+        shell: bash
+
+      - name: Install dotnet maui-ios workload
+        run: dotnet workload install maui-ios
+        shell: bash
+
+      - name: Restore NuGet packages
+        run: dotnet restore src\Plugin.InAppBilling/*.csproj
+
+      - name: Pack NuGet package
+        run: dotnet pack src\Plugin.InAppBilling/*.csproj -c ${{ env.buildConfiguration }}
+
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: src\Plugin.InAppBilling/bin/${{ env.buildConfiguration }}/*.nupkg
