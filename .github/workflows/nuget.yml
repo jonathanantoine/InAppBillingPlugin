@@ -15,7 +15,9 @@ jobs:
     
     env:
       buildConfiguration: 'Release'
-    
+      SRC_FOLDER: ./src/
+      PROJ_NAME: Plugin.InAppBilling
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -36,15 +38,15 @@ jobs:
 
       - name: Force version of Xcode
         run: |
-          echo "Versions de Xcode utilisée avant:"
+          echo "Versions of Xcode before:"
           xcodebuild -version
           
-          echo "Versions de Xcode disponibles:"
+          echo "Available versions of Xcode:"
           ls -la /Applications/ | grep Xcode
           
           sudo xcode-select -s /Applications/Xcode_16.2.app/Contents/Developer
           
-          echo "Versions de Xcode utilisée après:"
+          echo "Versions of Xcode after:"
           xcodebuild -version
         shell: bash
 
@@ -53,13 +55,13 @@ jobs:
         shell: bash
 
       - name: Restore NuGet packages
-        run: dotnet restore src\Plugin.InAppBilling/*.csproj
+        run: dotnet restore ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/${{ env.PROJ_NAME }}.csproj
 
       - name: Pack NuGet package
-        run: dotnet pack src\Plugin.InAppBilling/*.csproj -c ${{ env.buildConfiguration }}
+        run: dotnet pack ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/${{ env.PROJ_NAME }}.csproj -c ${{ env.buildConfiguration }}
 
       - name: Upload NuGet package
         uses: actions/upload-artifact@v4
         with:
           name: nuget-package
-          path: src\Plugin.InAppBilling/bin/${{ env.buildConfiguration }}/*.nupkg
+          path: ${{ env.SRC_FOLDER }}${{ env.PROJ_NAME }}/bin/${{ env.buildConfiguration }}/*.nupkg
