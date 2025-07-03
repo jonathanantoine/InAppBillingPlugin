@@ -8,7 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		..\.editorconfig = ..\.editorconfig
 		..\README.md = ..\README.md
 		..\nuget\readme.txt = ..\nuget\readme.txt
-		..\.github\ios-ci.yml = ..\.github\builds/nuget.yml
+		..\.github\nuget.yml = ..\.github\workflows\nuget.yml
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Plugin.InAppBilling", "Plugin.InAppBilling\Plugin.InAppBilling.csproj", "{C570E25E-259F-4D4C-88F0-B2982815192D}"
